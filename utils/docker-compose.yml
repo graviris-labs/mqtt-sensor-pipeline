@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  # Database analyzer
+  db-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../data:/data  # Mount the data directory
+      - ./output:/output  # For saving analysis results
+    command: ["db_analyzer.py", "--db", "/data/sensor_data.db", "--output", "/output"]
+
+  # SQLite helper
+  sqlite-helper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../data:/data  # Mount the data directory
+      - ./output:/output  # For saving exports or rebuilt databases
+    command: ["sqlite_helper.py", "--db", "/data/sensor_data.db", "--action", "check"]
+
+  # Use this to run any SQLite command directly
+  sqlite:
+    image: alpine:latest
+    volumes:
+      - ../data:/data  # Mount the data directory
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["apk add --no-cache sqlite && sqlite3 /data/sensor_data.db"]
