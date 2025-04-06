@@ -177,4 +177,5 @@ cython_debug/
 data/*
 mosquitto/data/*
 mosquitto/log/*
+.DS_Store
 
