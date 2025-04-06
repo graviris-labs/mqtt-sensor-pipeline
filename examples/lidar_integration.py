@@ -24,7 +24,7 @@ logger = logging.getLogger('lidar-sender')
 # Configuration from environment variables
 BROKER_ADDRESS = os.environ.get("BROKER_ADDRESS", "mqtt-broker")
 PORT = int(os.environ.get("BROKER_PORT", 1883))
-TOPIC = os.environ.get("TOPIC", "sensor/lidar")
+TOPIC = os.environ.get("TOPIC", "sensor/test")
 DEVICE_ID = os.environ.get("DEVICE_ID", "raspi_lidar")
 LIDAR_PORT = os.environ.get("LIDAR_PORT", "/dev/ttyUSB0")
 PUBLISH_RATE = float(os.environ.get("PUBLISH_RATE", 5.0))  # Hz
