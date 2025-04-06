@@ -100,6 +100,10 @@ RUN pip install --no-cache-dir rplidar-py
 COPY sender.py .
 COPY ../examples/lidar_integration.py .
 
+# Make the script executable
+COPY run_lidar_sender.sh .
+RUN chmod +x run_lidar_sender.sh
+
 # Set the entrypoint to the lidar integration script
 CMD ["python3", "lidar_integration.py"]
 EOF
