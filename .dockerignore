@@ -1,0 +1,44 @@
+# Common version control systems
+.git/
+.gitignore
+.svn/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Development environments
+.env
+.venv
+env/
+venv/
+ENV/
+.idea/
+.vscode/
+
+# Data and logs
+data/
+*.log
+*.db
+mosquitto/data/
+mosquitto/log/
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+README.md
+docs/
+*.md
+LICENSE
+
+# Mac specific
+.DS_Store

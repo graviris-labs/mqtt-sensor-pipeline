@@ -1,10 +1,16 @@
+# Core dependencies with pinned versions
 paho-mqtt==1.6.1
 pandas==1.5.3
 numpy==1.24.3
 plotly==5.18.0
 dash==2.14.2
 dash-bootstrap-components==1.5.0
+
+# For 3D visualization (only install what's needed)
 open3d==0.17.0
 scipy==1.10.1
+
+# Optional for specific functionality
+# Remove these if not needed to reduce size
 pyquaternion==0.9.9
 matplotlib==3.7.1

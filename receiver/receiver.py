@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mac Mini MQTT Receiver - SQLite Optimized
+MQTT Receiver - SQLite Optimized
 Receives and stores sensor data in SQLite database.
 """
 import paho.mqtt.client as mqtt

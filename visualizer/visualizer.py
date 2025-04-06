@@ -2,6 +2,7 @@
 """
 LIDAR Point Cloud Visualization Core
 Processes LIDAR data from SQLite database and creates 3D point cloud visualizations.
+With thread-safe database connection handling.
 """
 import sqlite3
 import numpy as np
@@ -15,6 +16,7 @@ import logging
 import json
 from scipy.spatial.transform import Rotation
 import plotly.graph_objects as go
+import threading
 
 # Configure logging
 logging.basicConfig(
@@ -24,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger('lidar-visualizer')
 
 class LidarVisualizer:
-    """Class to handle LIDAR data visualization"""
+    """Class to handle LIDAR data visualization with thread-safe SQLite connections"""
     
     def __init__(self, db_path=None):
         """Initialize with database path"""
@@ -32,32 +34,35 @@ class LidarVisualizer:
         self.conn = None
         self.latest_timestamp = None
         self.point_cloud = None
+        self.local = threading.local()  # Thread-local storage for database connections
         
-    def connect_to_db(self):
-        """Connect to the SQLite database"""
-        try:
-            self.conn = sqlite3.connect(self.db_path)
-            logger.info(f"Connected to database at {self.db_path}")
-            return True
-        except sqlite3.Error as e:
-            logger.error(f"Database connection error: {e}")
-            return False
+    def get_connection(self):
+        """Get a thread-local database connection"""
+        if not hasattr(self.local, 'conn') or self.local.conn is None:
+            try:
+                self.local.conn = sqlite3.connect(self.db_path)
+                logger.info(f"Connected to database at {self.db_path} in thread {threading.get_ident()}")
+            except sqlite3.Error as e:
+                logger.error(f"Database connection error: {e}")
+                return None
+        return self.local.conn
     
-    def close_db(self):
-        """Close database connection"""
-        if self.conn:
-            self.conn.close()
-            self.conn = None
+    def close_connection(self):
+        """Close the thread-local database connection"""
+        if hasattr(self.local, 'conn') and self.local.conn is not None:
+            self.local.conn.close()
+            self.local.conn = None
+            logger.info(f"Closed database connection in thread {threading.get_ident()}")
     
     def get_latest_scan(self):
         """Get the latest complete LIDAR scan from the database"""
-        if not self.conn:
-            if not self.connect_to_db():
-                return None
+        conn = self.get_connection()
+        if not conn:
+            return None
         
         try:
             # Get the latest timestamp
-            cursor = self.conn.cursor()
+            cursor = conn.cursor()
             cursor.execute("SELECT MAX(timestamp) FROM sensor_data")
             latest_time = cursor.fetchone()[0]
             
@@ -104,9 +109,9 @@ class LidarVisualizer:
     
     def get_historical_scan(self, timestamp):
         """Get a specific LIDAR scan by timestamp"""
-        if not self.conn:
-            if not self.connect_to_db():
-                return None
+        conn = self.get_connection()
+        if not conn:
+            return None
         
         try:
             # Get the scan data for the specified timestamp
@@ -118,7 +123,7 @@ class LidarVisualizer:
             ORDER BY r.angle
             """
             
-            cursor = self.conn.cursor()
+            cursor = conn.cursor()
             cursor.execute(query, (timestamp,))
             rows = cursor.fetchall()
             
@@ -142,14 +147,14 @@ class LidarVisualizer:
             }
             
         except sqlite3.Error as e:
-            logger.error(f"Database query error: {e}")
+            logger.error(f"Database query error in thread {threading.get_ident()}: {e}")
             return None
     
     def get_timestamp_list(self, limit=100):
         """Get a list of available timestamps from the database"""
-        if not self.conn:
-            if not self.connect_to_db():
-                return []
+        conn = self.get_connection()
+        if not conn:
+            return []
         
         try:
             query = """
@@ -159,7 +164,7 @@ class LidarVisualizer:
             LIMIT ?
             """
             
-            cursor = self.conn.cursor()
+            cursor = conn.cursor()
             cursor.execute(query, (limit,))
             timestamps = [row[0] for row in cursor.fetchall()]
             
@@ -172,7 +177,7 @@ class LidarVisualizer:
     def convert_readings_to_points(self, scan_data):
         """Convert LIDAR angle/distance readings to 3D points"""
         if not scan_data or 'readings' not in scan_data:
-            return None
+            return None, None
         
         readings = scan_data['readings']
         points = []
@@ -393,5 +398,8 @@ if __name__ == "__main__":
     # Save to file
     output_path = "latest_point_cloud.ply"
     visualizer.save_point_cloud(output_path)
+    
+    # Make sure to close the connection when done
+    visualizer.close_connection()
     
     print("Done")

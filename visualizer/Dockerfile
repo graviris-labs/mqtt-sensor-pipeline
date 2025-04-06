@@ -1,27 +1,42 @@
-# Dockerfile for LIDAR 3D Point Cloud Visualizer
-FROM python:3.9-slim
+# Multi-stage build for LIDAR 3D Point Cloud Visualizer
 
-# Install system dependencies for OpenGL, 3D visualization, and OpenMP
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libxrender1 \
-    libxext6 \
-    libx11-6 \
-    sqlite3 \
-    libgomp1 \
-    libusb-1.0-0 \
-    && apt-get clean \
+# Builder stage
+FROM python:3.9-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Runtime stage
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libxrender1 \
+    libx11-6 \
+    sqlite3 \
+    libgomp1 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create data directory for SQLite access
 RUN mkdir -p /data
+
+# Copy Python packages from builder stage
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
 
 # Copy application code
 COPY visualizer.py .

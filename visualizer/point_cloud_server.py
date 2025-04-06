@@ -2,7 +2,7 @@
 """
 LIDAR Point Cloud Web Server
 Provides a web interface for visualizing LIDAR data as 3D point clouds.
-Uses Dash and Plotly for interactive visualization.
+Uses Dash and Plotly for interactive visualization with thread-safe SQLite access.
 """
 import os
 import time
@@ -16,6 +16,7 @@ import pandas as pd
 from datetime import datetime
 import sqlite3
 import logging
+import threading
 
 # Import the visualization core
 from visualizer import LidarVisualizer
@@ -30,6 +31,27 @@ logger = logging.getLogger('point-cloud-server')
 # Initialize the visualizer
 DB_PATH = os.environ.get("DB_PATH", "/data/sensor_data.db")
 visualizer = LidarVisualizer(DB_PATH)
+
+# Thread-local storage for database connections
+local_data = threading.local()
+
+def get_db_connection():
+    """Get a thread-local database connection"""
+    if not hasattr(local_data, 'conn') or local_data.conn is None:
+        try:
+            local_data.conn = sqlite3.connect(DB_PATH)
+            logger.info(f"Created new DB connection in thread {threading.get_ident()}")
+        except sqlite3.Error as e:
+            logger.error(f"Database connection error: {e}")
+            return None
+    return local_data.conn
+
+def close_db_connection():
+    """Close the thread-local database connection"""
+    if hasattr(local_data, 'conn') and local_data.conn is not None:
+        local_data.conn.close()
+        local_data.conn = None
+        logger.info(f"Closed DB connection in thread {threading.get_ident()}")
 
 # Create the Dash app
 app = dash.Dash(
@@ -206,8 +228,11 @@ def update_point_cloud(timestamp):
 )
 def update_db_info(n_clicks, n_intervals):
     try:
-        # Connect to database
-        conn = sqlite3.connect(DB_PATH)
+        # Get thread-local database connection
+        conn = get_db_connection()
+        if not conn:
+            return "Database connection error"
+        
         cursor = conn.cursor()
         
         # Get message count
@@ -239,7 +264,8 @@ def update_db_info(n_clicks, n_intervals):
         cursor.execute("SELECT COUNT(DISTINCT timestamp) FROM sensor_data")
         scan_count = cursor.fetchone()[0]
         
-        conn.close()
+        # Don't close the connection as the callbacks may be called multiple times
+        # Leave connection management to thread-local storage
         
         # Create info display
         return html.Div([
@@ -251,7 +277,7 @@ def update_db_info(n_clicks, n_intervals):
         ])
         
     except Exception as e:
-        logger.error(f"Error getting database info: {e}")
+        logger.error(f"Error getting database info in thread {threading.get_ident()}: {e}")
         return "Database information unavailable"
 
 # Callback for PLY file download

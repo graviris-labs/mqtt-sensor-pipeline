@@ -3,7 +3,7 @@ version: '3'
 services:
   # MQTT Broker (run this on Mac Mini)
   mqtt-broker:
-    image: eclipse-mosquitto:2.0
+    image: eclipse-mosquitto:2.0.18-openssl
     container_name: mqtt-broker
     ports:
       - "${MQTT_BROKER_PORT:-1883}:1883"
@@ -16,7 +16,7 @@ services:
 
   # Database initialization (runs once and exits)
   db-init:
-    image: alpine:latest
+    image: alpine:3.19
     container_name: db-init
     volumes:
       - ${DB_DIR:-./data}:/data
@@ -47,7 +47,7 @@ services:
       - DATA_DIR=/data
       - DB_FILENAME=${DB_FILENAME:-sensor_data.db}
     volumes:
-      - ${DB_DIR:-./data}:/data  # Mount a directory for persistent storage
+      - ${DB_DIR:-./data}:/data
     restart: unless-stopped
     
   # SQLite database management (optional, for administration)
@@ -59,9 +59,9 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - ${DB_DIR:-./data}:/data  # Same volume as receiver
+      - ${DB_DIR:-./data}:/data
     ports:
-      - "${SQLITEBROWSER_PORT:-3000}:3000"  # Web UI
+      - "${SQLITEBROWSER_PORT:-3000}:3000"
     restart: unless-stopped
   
   # 3D LIDAR Visualizer
@@ -76,21 +76,7 @@ services:
       - DB_PATH=/data/sensor_data.db
       - PORT=8050
     volumes:
-      - ${DB_DIR:-./data}:/data  # Mount the same data volume as receiver
+      - ${DB_DIR:-./data}:/data
     ports:
-      - "${VISUALIZER_PORT:-8050}:8050"  # Web UI
+      - "${VISUALIZER_PORT:-8050}:8050"
     restart: unless-stopped
-
-  # # Sender (run this on Raspberry Pi - optional component)
-  # mqtt-sender:
-  #   build:
-  #     context: ./sender
-  #     dockerfile: Dockerfile
-  #   container_name: mqtt-sender
-  #   environment:
-  #     - BROKER_ADDRESS=192.168.1.X  # Replace with Mac Mini IP address
-  #     - BROKER_PORT=1883
-  #     - TOPIC=sensor/test
-  #     - INTERVAL=0.1
-  #     - MESSAGE_COUNT=1000
-  #   restart: "no"  # This container will exit after sending test messages
