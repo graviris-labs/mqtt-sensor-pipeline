@@ -1,0 +1,79 @@
+version: '3'
+
+services:
+  # MQTT Broker (run this on Mac Mini)
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt-broker
+    ports:
+      - "${MQTT_BROKER_PORT:-1883}:1883"
+      - "${MQTT_WEBSOCKET_PORT:-9001}:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+
+  # Database initialization (runs once and exits)
+  db-init:
+    image: alpine:latest
+    container_name: db-init
+    volumes:
+      - ${DB_DIR:-./data}:/data
+      - ./examples:/examples
+    command: >
+      sh -c "apk add --no-cache sqlite && 
+             if [ ! -f /data/${DB_FILENAME:-sensor_data.db} ]; then
+             echo 'Initializing database...';
+             cat /examples/schema.sql | sqlite3 /data/${DB_FILENAME:-sensor_data.db};
+             echo 'Database initialized successfully!';
+             else
+             echo 'Database already exists, skipping initialization';
+             fi"
+    
+  # Receiver (run this on Mac Mini)
+  mqtt-receiver:
+    build:
+      context: ./receiver
+      dockerfile: Dockerfile
+    container_name: mqtt-receiver
+    depends_on:
+      - mqtt-broker
+      - db-init
+    environment:
+      - BROKER_ADDRESS=${BROKER_ADDRESS:-mqtt-broker}
+      - BROKER_PORT=${MQTT_BROKER_PORT:-1883}
+      - TOPIC=${MQTT_TOPIC:-sensor/test}
+      - DATA_DIR=/data
+      - DB_FILENAME=${DB_FILENAME:-sensor_data.db}
+    volumes:
+      - ${DB_DIR:-./data}:/data  # Mount a directory for persistent storage
+    restart: unless-stopped
+    
+  # SQLite database management (optional, for administration)
+  sqlite-admin:
+    image: linuxserver/sqlitebrowser:latest
+    container_name: sqlite-admin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ${DB_DIR:-./data}:/data  # Same volume as receiver
+    ports:
+      - "${SQLITEBROWSER_PORT:-3000}:3000"  # Web UI
+    restart: unless-stopped
+
+  # # Sender (run this on Raspberry Pi - optional component)
+  # mqtt-sender:
+  #   build:
+  #     context: ./sender
+  #     dockerfile: Dockerfile
+  #   container_name: mqtt-sender
+  #   environment:
+  #     - BROKER_ADDRESS=192.168.1.X  # Replace with Mac Mini IP address
+  #     - BROKER_PORT=1883
+  #     - TOPIC=sensor/test
+  #     - INTERVAL=0.1
+  #     - MESSAGE_COUNT=1000
+  #   restart: "no"  # This container will exit after sending test messages
