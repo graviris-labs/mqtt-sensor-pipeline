@@ -63,6 +63,23 @@ services:
     ports:
       - "${SQLITEBROWSER_PORT:-3000}:3000"  # Web UI
     restart: unless-stopped
+  
+  # 3D LIDAR Visualizer
+  lidar-visualizer:
+    build:
+      context: ./visualizer
+      dockerfile: Dockerfile
+    container_name: lidar-visualizer
+    depends_on:
+      - mqtt-receiver
+    environment:
+      - DB_PATH=/data/sensor_data.db
+      - PORT=8050
+    volumes:
+      - ${DB_DIR:-./data}:/data  # Mount the same data volume as receiver
+    ports:
+      - "${VISUALIZER_PORT:-8050}:8050"  # Web UI
+    restart: unless-stopped
 
   # # Sender (run this on Raspberry Pi - optional component)
   # mqtt-sender:
