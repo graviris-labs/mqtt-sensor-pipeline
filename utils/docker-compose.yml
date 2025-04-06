@@ -26,5 +26,5 @@ services:
     image: alpine:latest
     volumes:
       - ../data:/data  # Mount the data directory
-    entrypoint: ["sqlite3"]
-    command: ["/data/sensor_data.db"]
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["apk add --no-cache sqlite && sqlite3 /data/sensor_data.db"]
